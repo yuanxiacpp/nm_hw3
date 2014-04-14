@@ -102,6 +102,16 @@ void upperhes(double *a, int n, double *u, double *b) {
 }
 
 void qr_symmetric(double *a, int n, double *b) {
+  double *u = (double *)malloc(n*n*sizeof(double));
+  upperhes(a, n, u, b);
+
+  //b shift
+  double miu = b[0];
+  int i, j;
+  for (i = 0; i < n; i++)
+      b[i*n+i] -= miu;
+
+
   
   return;
 }
@@ -112,17 +122,19 @@ int problem(int n) {
   int i, j;
 
   double *a = (double *)malloc(n*n*sizeof(double));
-  double *u = (double *)malloc(n*n*sizeof(double));
   double *b = (double *)malloc(n*n*sizeof(double));
 
-
   for (i = 0; i < n; i++)
-    for (j = 0; j < n; j++) {
+    for (j = i; j < n; j++) {
       a[i*n+j] = (double)rand()/(double)RAND_MAX * 10;
+      a[j*n+i] = a[i*n+j];
     }
 
-
   //double a[25] = {5,1,2,0,4,1,4,2,1,3,2,2,5,4,0,0,1,4,1,3,4,3,0,3,4};
+  qr_symmetric(a, n, b);
+
+
+
 
   return 0;
 }
@@ -130,16 +142,7 @@ int problem(int n) {
 int main() {
   srand(time(NULL));
 
-  int i;
-  for (i = 0; i < 1000; i++) {
-    int n = rand() % 10 + 3;
-    if (problem(n) != 0) {
-      printf("Error!!!");
-      break;
-    }
-    printf("Round %d\n", i);
-  }
-
+  problem(5);
   return 0;
 }
 
