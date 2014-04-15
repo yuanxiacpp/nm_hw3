@@ -117,7 +117,6 @@ void qr_symmetric(double *a, int n, double *b) {
 	double *paras = (double *)malloc(2*n*sizeof(double));
 
 
-	int round = 0;
 	while (fabs(b[eigen*n+eigen+1]) > 0.0001) {
 	  int i;
 	  //step 2: b shift
@@ -126,9 +125,8 @@ void qr_symmetric(double *a, int n, double *b) {
 		b[i*n+i] -= miu;
 
 
-	  //step 3: givens rotation
+	  //step 3: givens rotation. Save cos and sin to paras for step 4
 	  for (i = n-1; i > eigen; --i)
-		//memcpy(q, multiply(givens_rotation(b, n, i), q, n, n, n), n*n*sizeof(double));
 		givens_rotation(b, n, i, eigen, paras);
   
 
@@ -145,7 +143,6 @@ void qr_symmetric(double *a, int n, double *b) {
 	  //printf("Check Flag: %f\n", fabs(b[eigen*n+eigen+1]));
 	  //printMatrix(b, n);
 	  //getchar();
-	  round++;
 	  
 	}
   }
@@ -187,7 +184,7 @@ int problem(int n) {
 int main() {
   srand(time(NULL));
 
-  problem(7);
+  problem(10);
   return 0;
 }
 
