@@ -1,6 +1,6 @@
 all: project3
 
-project2: project3.c
+project3: project3.c
 	gcc -g -o project3 project3.c -lm
 
 clean:
