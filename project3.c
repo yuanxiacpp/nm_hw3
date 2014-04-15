@@ -4,6 +4,7 @@
 #include <string.h>
 #include <time.h>
 
+
 void printMatrix(double *a, int n) {
   printf("***************** Matrix %d x %d *********************\n", n, n);
   int i = 0;
@@ -61,58 +62,93 @@ void assignIdentity(double *a, int n) {
   return;
 }
 
-void upperhes(double *a, int n, double *u, double *b) {
-  assignIdentity(u, n);
+void givens_rotation(double *b, int n, int r, int eigen, double *paras) {
 
-  memcpy(b, a, n*n*sizeof(double));
+  double x = b[(r-1)*n+r];
+  double y = b[r*n+r];
 
-  int c, r;
-  for (c = 0; c < n-1; c++)
-    for (r = n-2; r > c; r--) {
-      double x = b[r*n+c];
-      double y = b[(r+1)*n+c];
-      double sina = -y/sqrt(x*x+y*y);
-      double cosa = x/sqrt(x*x+y*y);
+  double sina = x/sqrt(x*x+y*y);
+  double cosa = y/sqrt(x*x+y*y);
 
-      int j = 0;
-      for (j = 0; j < n; j++) {
-	double b_rj = b[r*n+j];
-	double b_r1j = b[(r+1)*n+j];
-	b[r*n+j] = cosa * b_rj - sina * b_r1j;
-	b[(r+1)*n+j] = sina * b_rj + cosa * b_r1j;
-
-	
-	//update u
-	double u_rj = u[r*n+j];
-	double u_r1j = u[(r+1)*n+j];
-	u[r*n+j] = cosa * u_rj - sina * u_r1j;
-	u[(r+1)*n+j] = sina * u_rj + cosa * u_r1j;
+  paras[r*2] = sina;
+  paras[r*2+1] = cosa;
 
 
-      }
-      for (j = 0; j < n; j++) {
-	double b_jr = b[j*n+r];
-	double b_jr1 = b[j*n+r+1];
-	b[j*n+r] = cosa*b_jr - sina*b_jr1;
-	b[j*n+r+1] = sina*b_jr + cosa*b_jr1;
-      }
-    }
+  int i;
+
+  //Q * B -> B
+  for (i = eigen; i < n; i++) {
+	double r1i = b[(r-1)*n+i];
+	double ri = b[r*n+i];
+
+	b[(r-1)*n+i] = cosa*r1i - sina*ri;
+	b[r*n+i] = sina*r1i + cosa*ri;
+  }
+
 
   return;
 }
 
+void adjoints_givens_rotation(double *b, int n, int r, int eigen, double *paras) {
+  double sina = paras[r*2];
+  double cosa = paras[r*2+1];
+
+  int i;
+  for (i = eigen; i < n; i++) {
+	double ir1 = b[i*n+r-1];
+	double ir = b[i*n+r];
+	
+	b[i*n+r-1] = cosa*ir1 - sina*ir;
+	b[i*n+r] = sina*ir1 + cosa*ir;
+  }
+  return;
+}
+
 void qr_symmetric(double *a, int n, double *b) {
-  double *u = (double *)malloc(n*n*sizeof(double));
-  upperhes(a, n, u, b);
-
-  //b shift
-  double miu = b[0];
-  int i, j;
-  for (i = 0; i < n; i++)
-      b[i*n+i] -= miu;
-
 
   
+  memcpy(b, a, n*n*sizeof(double));
+
+  //store the sina and cosa from step 3 to perform step 4
+
+  int eigen;
+  for (eigen = 0; eigen < n-1; eigen++) {
+	//some of the paras space will not be used
+	double *paras = (double *)malloc(2*n*sizeof(double));
+
+
+	int round = 0;
+	while (fabs(b[eigen*n+eigen+1]) > 0.0001) {
+	  int i;
+	  //step 2: b shift
+	  double miu = b[eigen*n+eigen];
+	  for (i = eigen; i < n; i++)
+		b[i*n+i] -= miu;
+
+
+	  //step 3: givens rotation
+	  for (i = n-1; i > eigen; --i)
+		//memcpy(q, multiply(givens_rotation(b, n, i), q, n, n, n), n*n*sizeof(double));
+		givens_rotation(b, n, i, eigen, paras);
+  
+
+	  //step 4: adjoints of givens rotation
+	  for (i = n-1; i > eigen; --i)
+		adjoints_givens_rotation(b, n, i, eigen, paras);
+
+	  
+	  //step 5: add shift back
+	  for (i = eigen; i < n; i++)
+		b[i*n+i] += miu;
+
+	  //printf("Eigen: %d, Round: %d\n", eigen, round);
+	  //printf("Check Flag: %f\n", fabs(b[eigen*n+eigen+1]));
+	  //printMatrix(b, n);
+	  //getchar();
+	  round++;
+	  
+	}
+  }
   return;
 }
 
@@ -125,14 +161,23 @@ int problem(int n) {
   double *b = (double *)malloc(n*n*sizeof(double));
 
   for (i = 0; i < n; i++)
-    for (j = i; j < n; j++) {
-      a[i*n+j] = (double)rand()/(double)RAND_MAX * 10;
-      a[j*n+i] = a[i*n+j];
-    }
-
+	for (j = 0; j < n; j++)
+	  a[i*n+j] = 0;
+  for (i = 0; i < n; i++)
+	a[i*n+i] = (double)rand()/(double)RAND_MAX * 10;
+  for (i = 0; i < n-1; i++) {
+	a[i*n+i+1] = (double)rand()/(double)RAND_MAX * 10;
+	a[(i+1)*n+i] = a[i*n+i+1];
+  }
+  
   //double a[25] = {5,1,2,0,4,1,4,2,1,3,2,2,5,4,0,0,1,4,1,3,4,3,0,3,4};
+  
   qr_symmetric(a, n, b);
 
+  printf("Original Test:\n");
+  printMatrix(a, n);
+  printf("Final Result:\n");
+  printMatrix(b, n);
 
 
 
@@ -142,7 +187,7 @@ int problem(int n) {
 int main() {
   srand(time(NULL));
 
-  problem(5);
+  problem(7);
   return 0;
 }
 
